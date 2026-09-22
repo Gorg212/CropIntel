@@ -42,33 +42,28 @@ def predict_single_image(image_path, model, transform, class_names):
         confidence, predicted_idx = torch.max(probabilities, 0)
         predicted_class = class_names[predicted_idx.item()]
 
-    print(f"Prediction: {predicted_class}")
-    print(f"Confidence: {confidence.item() * 100:.2f}%")
     return predicted_class, confidence.item()
 
 
-# Run a test
-predict_single_image('test5.png', brain, test_transform, class_names)
+TESTING_DIR = './testing/'
+files = os.listdir(TESTING_DIR)
 
-# TESTING_DIR = './testing/'
-# files = os.listdir(TESTING_DIR)
-#
-# healthy = 0
-# infected = 0
-# conf = 0
-# count = 0
-# for img in files:
-#     if not (count % 10):
-#         print(f'{count} images done')
-#
-#     count += 1
-#     imgpath = f'./testing/{img}'
-#     predict, confidence = predict_single_image(imgpath, brain, test_transform, class_names)
-#     if predict == 'Healthy':
-#         healthy += 1
-#     else:
-#         infected += 1
-#
-#     conf += confidence
-#
-# print(f'Healthy: {healthy} \nInfected: {infected} \nOverall confidence: {conf/150}')
+healthy = 0
+infected = 0
+conf = 0
+count = 0
+for img in files:
+    if not (count % 10):
+        print(f'{count} images done')
+
+    count += 1
+    imgpath = f'./testing/{img}'
+    predict, confidence = predict_single_image(imgpath, brain, test_transform, class_names)
+    if predict == 'Healthy':
+        healthy += 1
+    else:
+        infected += 1
+
+    conf += confidence
+
+print(f'Healthy: {healthy} \nInfected: {infected} \nOverall confidence: {(conf/150)*100}')
