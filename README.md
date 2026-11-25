@@ -8,4 +8,4 @@
 # How to run
 
 1. You need to have uv installed in your system: [Website](https://docs.astral.sh/uv/)
-2. Go to project root and run: `uv run main.py`
+2. Go to project root and run: `uv run CropIntelModel.py`
