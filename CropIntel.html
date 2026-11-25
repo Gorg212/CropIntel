@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+   <meta name="theme-color" content="#143c2d">
+   <meta name="description" content="Crop Intel — cauliflower leaf health screening powered by a local PyTorch ResNet-18 backend.">
+   <title>Crop Intel — Cauliflower health screening</title>
+   <link rel="icon" type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23143c2d'/%3E%3Cpath d='M9 23C5 10 17 7 25 7c0 13-7 20-16 16Zm0 0L21 11' fill='none' stroke='%23d6f5a4' stroke-width='2'/%3E%3C/svg%3E">
+   <style>
+      :root {
+         --ink: #172b24;
+         --muted: #617168;
+         --green: #174a36;
+         --lime: #d6f5a4;
+         --line: #dfe6e2;
+         --surface: #fff;
+         --bg: #f5f7f6;
+         --radius: 24px;
+         font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         color: var(--ink);
+         background: var(--bg);
+         font-synthesis: none;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+      body { margin: 0; }
+      button, input, select { font: inherit; }
+      button, a, select { -webkit-tap-highlight-color: transparent; }
+      button, a { touch-action: manipulation; }
+      button { cursor: pointer; border: 0; }
+      button:disabled { cursor: not-allowed; }
+      a { color: inherit; text-decoration: none; }
+      svg { display: block; }
+      button svg { flex-shrink: 0; }
+      [hidden] { display: none !important; }
+
+      button:focus-visible,
+      a:focus-visible,
+      summary:focus-visible {
+         outline: 3px solid #548a23;
+         outline-offset: 5px;
+      }
+
+      .wrap { width: min(1160px, calc(100% - 80px)); margin: auto; }
+
+      .topbar {
+         height: 82px;
+         border-bottom: 1px solid var(--line);
+         background: rgba(255, 255, 255, .96);
+         position: sticky;
+         top: 0;
+         z-index: 20;
+         backdrop-filter: blur(8px);
+      }
+
+      .nav {
+         height: 100%;
+         display: flex;
+         align-items: center;
+         justify-content: space-between;
+         gap: 20px;
+      }
+
+      .brand {
+         display: flex;
+         align-items: center;
+         gap: 10px;
+         font-size: 23px;
+         font-weight: 700;
+         letter-spacing: -.8px;
+      }
+
+      .brandmark {
+         background: var(--green);
+         color: var(--lime);
+         width: 34px;
+         height: 34px;
+         border-radius: 11px;
+         display: grid;
+         place-items: center;
+      }
+
+      .brandmark svg { width: 22px; height: 22px; }
+
+      .navlinks {
+         display: flex;
+         gap: 30px;
+         align-items: center;
+         font-size: 14px;
+         font-weight: 550;
+      }
+
+      .navlinks a:hover { color: #347354; }
+
+      .status-pill {
+         display: inline-flex;
+         align-items: center;
+         gap: 8px;
+         border: 1px solid var(--line);
+         border-radius: 30px;
+         padding: 7px 13px;
+         font-size: 12px;
+         letter-spacing: .01em;
+         color: var(--muted);
+         background: #fff;
+      }
+
+      .status-dot {
+         width: 8px;
+         height: 8px;
+         border-radius: 50%;
+         background: #a3b2a9;
+      }
+
+      .status-pill.online .status-dot { background: #2f8f5b; }
+      .status-pill.offline .status-dot { background: #c44536; }
+
+      .intro {
+         padding: 48px 0 30px;
+         display: flex;
+         justify-content: space-between;
+         align-items: end;
+         gap: 24px;
+      }
+
+      .eyebrow {
+         text-transform: uppercase;
+         font-size: 12px;
+         font-weight: 650;
+         letter-spacing: .15em;
+         margin: 0 0 13px;
+         color: var(--green);
+      }
+
+      h1 {
+         font-size: clamp(34px, 4.3vw, 54px);
+         letter-spacing: -2.2px;
+         line-height: 1.1;
+         margin: 0;
+         font-weight: 600;
+      }
+
+      h1 span { color: #6c8175; }
+
+      .intro p:not(.eyebrow) {
+         font-size: 16px;
+         line-height: 1.6;
+         margin: 15px 0 0;
+         color: var(--muted);
+      }
+
+      .local {
+         display: flex;
+         align-items: center;
+         gap: 9px;
+         font-size: 13px;
+         color: var(--muted);
+         padding-bottom: 3px;
+         white-space: nowrap;
+      }
+
+      .local svg { width: 16px; height: 16px; }
+
+      .workspace {
+         display: grid;
+         grid-template-columns: 1.12fr 1fr;
+         background: white;
+         border: 1px solid var(--line);
+         border-radius: var(--radius);
+         box-shadow: 0 14px 38px #1a3f2710;
+         overflow: hidden;
+      }
+
+      .upload-panel {
+         padding: 28px;
+         border-right: 1px solid var(--line);
+      }
+
+      .panel-header {
+         display: flex;
+         align-items: center;
+         justify-content: space-between;
+         flex-wrap: wrap;
+         gap: 14px;
+         margin-bottom: 20px;
+      }
+
+      h2, h3, p { margin-top: 0; }
+
+      .panel-title {
+         font-size: 16px;
+         font-weight: 600;
+         margin: 0;
+         display: flex;
+         gap: 10px;
+         align-items: center;
+      }
+
+      .number {
+         font-size: 11px;
+         border: 1px solid #dbe3dd;
+         color: var(--muted);
+         border-radius: 50%;
+         width: 23px;
+         height: 23px;
+         display: inline-grid;
+         place-items: center;
+      }
+
+      .small { font-size: 12px; color: var(--muted); }
+
+      .dropzone {
+         width: 100%;
+         min-height: 264px;
+         position: relative;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         flex-direction: column;
+         border: 1.5px dashed #c2cfc7;
+         background: #f8faf9;
+         border-radius: 16px;
+         padding: 24px;
+         text-align: center;
+         transition: background .2s, border-color .2s, transform .2s;
+         color: var(--ink);
+         overflow: hidden;
+      }
+
+      .dropzone:hover,
+      .dropzone.dragover {
+         background: #edf5ed;
+         border-color: #538462;
+      }
+
+      .dropzone.dragover { transform: scale(.99); }
+
+      .upload-icon {
+         width: 58px;
+         height: 58px;
+         background: white;
+         display: grid;
+         place-items: center;
+         border-radius: 17px;
+         border: 1px solid #e4eae6;
+         box-shadow: 0 5px 12px #143c2d08;
+         margin: 0 auto 20px;
+      }
+
+      .upload-icon svg { width: 26px; height: 26px; color: var(--green); }
+
+      .drop-main {
+         display: block;
+         font-size: 18px;
+         font-weight: 560;
+         margin: 0 0 8px;
+         letter-spacing: -.35px;
+      }
+
+      .drop-sub { font-size: 14px; color: var(--muted); line-height: 1.6; margin: 0; }
+      .browse { color: var(--green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+      .formats { display: block; margin-top: 19px; font-size: 12px; color: #748177; }
+
+      .preview {
+         position: absolute;
+         inset: 0;
+         width: 100%;
+         height: 100%;
+         object-fit: contain;
+         background: #eef2ef;
+         padding: 12px;
+      }
+
+      .image-tag {
+         position: absolute;
+         bottom: 12px;
+         right: 12px;
+         z-index: 2;
+         padding: 7px 11px;
+         border-radius: 30px;
+         font-size: 12px;
+         background: #ffffffee;
+         color: var(--green);
+         box-shadow: 0 2px 12px #0001;
+      }
+
+      .scan-line {
+         position: absolute;
+         left: 0;
+         right: 0;
+         top: 0;
+         height: 3px;
+         background: #a1ce77;
+         box-shadow: 0 0 36px 14px #b4ec8555;
+         animation: scan 2s ease-in-out infinite;
+         z-index: 3;
+      }
+
+      .file-row {
+         display: flex;
+         align-items: center;
+         justify-content: space-between;
+         gap: 12px;
+         padding: 12px 0 0;
+         font-size: 12px;
+         color: var(--muted);
+      }
+
+      .filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      .text-btn {
+         background: transparent;
+         padding: 5px;
+         color: var(--green);
+         font-size: 12px;
+         text-decoration: underline;
+         text-underline-offset: 3px;
+      }
+
+      .model-strip {
+         display: flex;
+         gap: 8px;
+         align-items: center;
+         font-size: 12px;
+         color: var(--muted);
+         margin: 19px 0 15px;
+         line-height: 1.5;
+      }
+
+      .model-strip svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+      .primary {
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         gap: 10px;
+         background: var(--green);
+         color: #fff;
+         border-radius: 12px;
+         padding: 16px 22px;
+         width: 100%;
+         font-weight: 550;
+         font-size: 15px;
+         transition: background .2s, transform .2s;
+      }
+
+      .primary:hover:not(:disabled) { background: #0e3525; transform: translateY(-1px); }
+      .primary:disabled { background: #e5ebe7; color: #6f7e74; }
+      .primary svg { width: 19px; height: 19px; }
+
+      .hint {
+         text-align: center;
+         font-size: 12px;
+         margin: 12px 0 0;
+         color: var(--muted);
+         line-height: 1.5;
+      }
+
+      .error {
+         color: #9f342c;
+         background: #fff0ed;
+         padding: 11px 14px;
+         border-radius: 10px;
+         font-size: 13px;
+         line-height: 1.5;
+         margin: 12px 0 0;
+      }
+
+      .result-panel {
+         padding: 28px 32px;
+         display: flex;
+         flex-direction: column;
+         background: linear-gradient(150deg, #fff 30%, #f4f8f4);
+      }
+
+      .waiting {
+         display: flex;
+         flex-direction: column;
+         flex: 1;
+         justify-content: center;
+      }
+
+      .scope {
+         width: 90px;
+         height: 90px;
+         border: 1px solid #dae4dc;
+         border-radius: 50%;
+         position: relative;
+         display: grid;
+         place-items: center;
+         margin: 8px 0 25px;
+         background: #f8fbf7;
+      }
+
+      .scope:before {
+         content: "";
+         position: absolute;
+         inset: 9px;
+         border: 1px dashed #c8d8ca;
+         border-radius: 50%;
+      }
+
+      .scope svg { width: 31px; height: 31px; color: #658273; }
+      .waiting h3 { font-size: 27px; letter-spacing: -.9px; font-weight: 550; margin-bottom: 11px; }
+      .waiting > p { font-size: 15px; line-height: 1.65; color: var(--muted); max-width: 340px; }
+
+      .tips {
+         padding-top: 25px;
+         border-top: 1px solid var(--line);
+         margin: 17px 0 0;
+         display: flex;
+         gap: 16px;
+      }
+
+      .tip-symbol {
+         background: #e9f1e8;
+         width: 32px;
+         height: 32px;
+         display: grid;
+         place-items: center;
+         border-radius: 10px;
+         flex-shrink: 0;
+         color: #4d714c;
+      }
+
+      .tip-symbol svg { width: 17px; height: 17px; }
+      .tips p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+      .tips strong { display: block; color: var(--ink); font-weight: 550; margin-bottom: 3px; }
+
+      .state-badge {
+         font-size: 11px;
+         text-transform: uppercase;
+         letter-spacing: .09em;
+         color: var(--muted);
+         font-weight: 550;
+      }
+
+      .processing { margin: auto 0; width: 100%; padding: 35px 0; }
+      .processing h3 { font-size: 28px; font-weight: 550; letter-spacing: -.8px; margin: 24px 0 10px; }
+      .processing p { font-size: 14px; line-height: 1.6; color: var(--muted); }
+
+      .spinner {
+         width: 36px;
+         height: 36px;
+         border: 2px solid #dce7db;
+         border-top-color: var(--green);
+         border-radius: 50%;
+         animation: spin 1s linear infinite;
+      }
+
+      .progress-top {
+         display: flex;
+         justify-content: space-between;
+         font-size: 12px;
+         color: var(--muted);
+         margin: 30px 0 10px;
+         gap: 10px;
+      }
+
+      progress {
+         width: 100%;
+         height: 6px;
+         border: 0;
+         border-radius: 6px;
+         overflow: hidden;
+         display: block;
+         background: #e4ece3;
+         accent-color: var(--green);
+      }
+
+      progress::-webkit-progress-bar { background: #e4ece3; }
+      progress::-webkit-progress-value { background: var(--green); border-radius: 6px; transition: width .16s; }
+      progress::-moz-progress-bar { background: var(--green); }
+      .cancel { display: block; margin: 22px auto 0; font-size: 13px; }
+
+      .result { padding-top: 16px; flex: 1; }
+      .result:not([hidden]) { animation: enter .35s ease-out; }
+
+      .result-icon {
+         width: 58px;
+         height: 58px;
+         border-radius: 18px;
+         background: #e8f4df;
+         color: #356029;
+         display: grid;
+         place-items: center;
+         margin-bottom: 20px;
+      }
+
+      .result-icon svg { width: 28px; height: 28px; }
+      .result.infected .result-icon { background: #fff0d9; color: #94601f; }
+      .result h3 { font-size: 30px; line-height: 1.15; font-weight: 550; letter-spacing: -1.1px; margin: 0 0 12px; }
+
+      .result-description {
+         font-size: 15px;
+         line-height: 1.65;
+         color: var(--muted);
+         margin-bottom: 22px;
+         max-width: 380px;
+      }
+
+      .classification {
+         display: flex;
+         justify-content: space-between;
+         gap: 16px;
+         align-items: center;
+         padding: 13px 0;
+         border-top: 1px solid var(--line);
+         font-size: 13px;
+         color: var(--muted);
+      }
+
+      .classification:last-of-type { border-bottom: 1px solid var(--line); }
+      .classification strong { font-weight: 550; color: var(--green); text-align: right; }
+      .result.infected .classification strong.category-val { color: #94601f; }
+
+      .demo-note { font-size: 12px; line-height: 1.6; color: var(--muted); margin: 16px 0 8px; }
+
+      .result-scores { margin: 14px 0 18px; color: var(--muted); font-size: 13px; }
+      .result-scores summary { cursor: pointer; padding: 8px 0; color: var(--green); font-weight: 550; }
+
+      .score-row {
+         display: grid;
+         grid-template-columns: 1fr auto;
+         gap: 6px;
+         margin: 12px 0;
+      }
+
+      .score-track {
+         grid-column: 1 / -1;
+         height: 5px;
+         border-radius: 4px;
+         background: #e4ece5;
+         overflow: hidden;
+      }
+
+      .score-track span { display: block; height: 100%; background: #66864d; transition: width .35s ease; }
+      .result.infected .score-row:first-child .score-track span { background: #b87924; }
+
+      .below-note {
+         display: flex;
+         gap: 8px;
+         align-items: center;
+         font-size: 12px;
+         color: var(--muted);
+         padding: 17px 2px;
+      }
+
+      .below-note svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+      .research { padding: 54px 0 62px; }
+
+      .section-heading {
+         display: flex;
+         justify-content: space-between;
+         gap: 24px;
+         align-items: end;
+         margin-bottom: 26px;
+      }
+
+      .section-heading h2 { font-size: 34px; font-weight: 550; letter-spacing: -1.2px; margin: 0; }
+      .section-heading p:not(.eyebrow) { font-size: 14px; line-height: 1.6; color: var(--muted); max-width: 340px; margin: 0; }
+
+      .disease-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+      .card {
+         background: #fff;
+         border: 1px solid var(--line);
+         border-radius: 20px;
+         padding: 24px 24px 25px;
+      }
+
+      .card h3 { font-weight: 550; font-size: 22px; letter-spacing: -.5px; margin-bottom: 12px; }
+      .card p:not(.eyebrow) { font-size: 14px; line-height: 1.7; color: var(--muted); margin-bottom: 14px; }
+
+      .source-link {
+         color: var(--green);
+         font-size: 13px;
+         text-decoration: underline;
+         text-underline-offset: 3px;
+         line-height: 1.6;
+      }
+
+      .research-notice {
+         display: flex;
+         gap: 10px;
+         align-items: start;
+         background: #edf2ef;
+         border: 1px solid #dfe6e1;
+         border-radius: 12px;
+         padding: 13px 16px;
+         font-size: 13px;
+         line-height: 1.6;
+         color: #576b60;
+         margin-top: 22px;
+      }
+
+      .research-notice svg { width: 17px; height: 17px; flex-shrink: 0; margin-top: 2px; }
+      .research-notice strong { font-weight: 600; }
+
+      .method {
+         margin-top: 24px;
+         border: 1px solid var(--line);
+         border-radius: 20px;
+         background: white;
+         padding: 26px;
+      }
+
+      .method-heading {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         gap: 20px;
+         margin-bottom: 24px;
+      }
+
+      .method-heading h3 { font-size: 16px; font-weight: 550; margin: 0; }
+      .method-heading span { font-size: 12px; color: var(--muted); }
+
+      .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+      .step { position: relative; }
+      .step-no { font-size: 12px; color: var(--green); font-weight: 650; margin-bottom: 12px; }
+      .step h4 { font-size: 16px; font-weight: 550; margin: 0 0 8px; }
+      .step p { font-size: 14px; line-height: 1.65; color: var(--muted); margin: 0; }
+
+      footer { border-top: 1px solid var(--line); padding: 25px 0 30px; }
+      .footer-inner { display: flex; justify-content: space-between; gap: 24px; align-items: center; }
+      .footer-brand { font-weight: 650; font-size: 15px; letter-spacing: -.3px; }
+      .footer-inner p, .footer-inner a { font-size: 12px; color: var(--muted); margin: 0; }
+
+      .sr-only {
+         position: absolute;
+         width: 1px;
+         height: 1px;
+         padding: 0;
+         margin: -1px;
+         overflow: hidden;
+         clip: rect(0, 0, 0, 0);
+         white-space: nowrap;
+         border: 0;
+      }
+
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes scan { 0%, 100% { top: 5%; } 50% { top: 95%; } }
+      @keyframes enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+
+      @media (max-width: 850px) {
+         .wrap { width: calc(100% - 40px); }
+         .intro { display: block; padding-top: 35px; }
+         .local { margin-top: 16px; }
+         .workspace { grid-template-columns: 1fr; }
+         .upload-panel { border-right: 0; border-bottom: 1px solid var(--line); padding: 22px; }
+         .result-panel { padding: 24px; min-height: 340px; }
+         .disease-grid { grid-template-columns: 1fr; }
+         .steps { grid-template-columns: 1fr; gap: 22px; }
+      }
+
+      @media (max-width: 640px) {
+         .topbar { height: 70px; }
+         .wrap { width: calc(100% - 32px); }
+         .navlinks { gap: 16px; }
+         .status-pill { display: none; }
+         .section-heading { display: block; }
+         .section-heading p:not(.eyebrow) { margin-top: 10px; max-width: none; }
+         .footer-inner { flex-wrap: wrap; gap: 12px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+         html { scroll-behavior: auto; }
+         *, *:before, *:after { animation: none !important; transition: none !important; }
+      }
+   </style>
+</head>
+
+<body>
+   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+      <symbol id="leaf" viewBox="0 0 24 24">
+         <path d="M5 19C1 8 12 3 21 3c0 12-6 20-16 16Zm0 0L16 8" fill="none" stroke="currentColor" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="upload" viewBox="0 0 24 24">
+         <path d="M12 16V3m-5 5 5-5 5 5M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5" fill="none" stroke="currentColor"
+            stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="scan" viewBox="0 0 24 24">
+         <path d="M8 3H4a1 1 0 0 0-1 1v4m13-5h4a1 1 0 0 1 1 1v4M3 16v4a1 1 0 0 0 1 1h4m8 0h4a1 1 0 0 0 1-1v-4M7 12h10"
+            fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+      </symbol>
+      <symbol id="server" viewBox="0 0 24 24">
+         <rect x="3" y="4" width="18" height="6" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" />
+         <rect x="3" y="14" width="18" height="6" rx="2" fill="none" stroke="currentColor" stroke-width="1.7" />
+         <circle cx="7.5" cy="7" r="1" fill="currentColor" />
+         <circle cx="7.5" cy="17" r="1" fill="currentColor" />
+      </symbol>
+      <symbol id="info" viewBox="0 0 24 24">
+         <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7" />
+         <path d="M12 11v6m0-11v1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+      </symbol>
+      <symbol id="sun" viewBox="0 0 24 24">
+         <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7" />
+         <path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" stroke="currentColor"
+            stroke-width="1.7" stroke-linecap="round" />
+      </symbol>
+      <symbol id="check" viewBox="0 0 24 24">
+         <path d="m5 12 4 4L19 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" />
+      </symbol>
+      <symbol id="alert" viewBox="0 0 24 24">
+         <path d="M12 9v4m0 4h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"
+            fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+   </svg>
+
+   <header class="topbar">
+      <nav class="wrap nav" aria-label="Main navigation">
+         <a class="brand" href="#" aria-label="Crop Intel home">
+            <span class="brandmark"><svg aria-hidden="true"><use href="#leaf" /></svg></span>
+            Crop Intel
+         </a>
+         <div class="navlinks">
+            <a href="#analyze">Analyze</a>
+            <a href="#research">Field notes</a>
+            <span class="status-pill" id="backend-pill">
+               <span class="status-dot" aria-hidden="true"></span>
+               <span id="backend-status-text">Checking backend...</span>
+            </span>
+         </div>
+      </nav>
+   </header>
+
+   <main class="wrap">
+      <section id="analyze" aria-labelledby="main-heading">
+         <div class="intro">
+            <div>
+               <p class="eyebrow">Cauliflower leaf screening</p>
+               <h1 id="main-heading">Your crop. <span>In clearer focus.</span></h1>
+               <p>Upload a cauliflower leaf photo to screen for Black Rot using your PyTorch ResNet-18 backend.</p>
+            </div>
+            <span class="local">
+               <svg aria-hidden="true"><use href="#server" /></svg>
+               Local Python API · ResNet-18
+            </span>
+         </div>
+
+         <div class="workspace">
+            <div class="upload-panel">
+               <div class="panel-header">
+                  <h2 class="panel-title"><span class="number">01</span>Upload an image</h2>
+                  <span class="small">One image at a time</span>
+               </div>
+
+               <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden>
+
+               <button type="button" class="dropzone" id="dropzone" aria-label="Upload a cauliflower leaf image">
+                  <span id="upload-empty">
+                     <span class="upload-icon"><svg aria-hidden="true"><use href="#upload" /></svg></span>
+                     <span class="drop-main">Drop a cauliflower leaf image here</span>
+                     <span class="drop-sub">or <span class="browse">browse files</span> to get started</span>
+                     <span class="formats">JPG, PNG or WebP · Up to 20 MB</span>
+                  </span>
+                  <img class="preview" id="preview" alt="Uploaded cauliflower leaf preview" hidden>
+                  <span class="image-tag" id="image-tag" hidden>Click to change image</span>
+                  <span class="scan-line" id="scan-line" hidden></span>
+               </button>
+
+               <div class="file-row" id="file-row" hidden>
+                  <span class="filename" id="filename"></span>
+                  <button class="text-btn" id="remove" type="button">Remove</button>
+               </div>
+
+               <p id="error" class="error" role="alert" hidden></p>
+
+               <div class="model-strip">
+                  <svg aria-hidden="true"><use href="#server" /></svg>
+                  <span id="model-info">ResNet-18 · 2 classes (Black Rot, Healthy)</span>
+               </div>
+
+               <button class="primary" id="analyze-button" type="button" disabled>
+                  <svg aria-hidden="true"><use href="#scan" /></svg>
+                  <span id="button-text">Analyze image</span>
+               </button>
+
+               <p class="hint">Sends the image to your local Flask server (<code>/predict</code>) for inference.</p>
+            </div>
+
+            <section class="result-panel" aria-labelledby="result-panel-heading">
+               <div class="panel-header">
+                  <h2 class="panel-title" id="result-panel-heading"><span class="number">02</span>Crop insights</h2>
+                  <span class="state-badge" id="state-badge">Awaiting image</span>
+               </div>
+
+               <div class="waiting" id="waiting">
+                  <div class="scope"><svg aria-hidden="true"><use href="#scan" /></svg></div>
+                  <h3>A closer look at your crop.</h3>
+                  <p>Upload a cauliflower leaf image. The ResNet-18 backend will classify it as Healthy or Black Rot.</p>
+                  <div class="tips">
+                     <span class="tip-symbol"><svg aria-hidden="true"><use href="#sun" /></svg></span>
+                     <p>
+                        <strong>A clearer photo. A better starting point.</strong>
+                        Use natural daylight and a sharp close-up showing leaf margins and veins clearly.
+                     </p>
+                  </div>
+               </div>
+
+               <div class="processing" id="processing" hidden>
+                  <div class="spinner" aria-hidden="true"></div>
+                  <h3>A closer look, in progress.</h3>
+                  <p>Sending image to the Python ResNet-18 backend and computing softmax scores.</p>
+                  <div class="progress-top">
+                     <span id="stage">Uploading image</span>
+                     <span id="percent" aria-hidden="true">0%</span>
+                  </div>
+                  <progress id="progress" value="0" max="100" aria-label="Analysis progress"></progress>
+                  <button type="button" class="text-btn cancel" id="cancel">Cancel analysis</button>
+               </div>
+
+               <div class="result" id="result" hidden>
+                  <div class="result-icon">
+                     <svg aria-hidden="true"><use id="result-symbol" href="#check" /></svg>
+                  </div>
+                  <p class="eyebrow">PyTorch assessment complete</p>
+                  <h3 id="result-title">Assessment ready</h3>
+                  <p class="result-description" id="result-description"></p>
+
+                  <div class="classification">
+                     <span>Predicted category</span>
+                     <strong class="category-val" id="classification">Healthy</strong>
+                  </div>
+                  <div class="classification">
+                     <span>Model confidence</span>
+                     <strong id="confidence-val">0.00%</strong>
+                  </div>
+                  <div class="classification">
+                     <span>Inference time</span>
+                     <strong id="timing-val">—</strong>
+                  </div>
+
+                  <p class="demo-note">
+                     Experimental visual screening, not a confirmed laboratory diagnosis. A healthy result does not rule out early or hidden infection.
+                  </p>
+
+                  <details class="result-scores" open>
+                     <summary>View softmax class scores</summary>
+                     <div id="class-scores"></div>
+                  </details>
+
+                  <button type="button" class="text-btn" id="restart">Analyze another image →</button>
+               </div>
+            </section>
+         </div>
+
+         <p class="below-note">
+            <svg aria-hidden="true"><use href="#info" /></svg>
+            This model only distinguishes between Healthy and Black Rot cauliflower leaves. Other diseases or non-cauliflower photos may produce misleading scores.
+         </p>
+         <div class="sr-only" id="announcer" role="status" aria-live="polite" aria-atomic="true"></div>
+      </section>
+
+      <section class="research" id="research" aria-labelledby="research-heading">
+         <div class="section-heading">
+            <div>
+               <p class="eyebrow">Model scope &amp; field notes</p>
+               <h2 id="research-heading">Know the signs.<br>Understand the limits.</h2>
+            </div>
+            <p>Reference notes for the two categories supported by your ResNet-18 classifier.</p>
+         </div>
+
+         <div class="disease-grid">
+            <article class="card">
+               <p class="eyebrow">Supported class · Disease</p>
+               <h3>Black Rot</h3>
+               <p>Look for yellow, V-shaped lesions starting along leaf margins, often accompanied by darkened veins. Severely affected leaves can wilt and turn brown.</p>
+               <a class="source-link"
+                  href="https://apps.extension.umn.edu/garden/diagnose/plant/vegetable/cauliflower/leavesspots.html"
+                  target="_blank" rel="noopener noreferrer">Symptoms &amp; reference photos · UMN Extension ↗</a>
+            </article>
+
+            <article class="card">
+               <p class="eyebrow">Supported class · Baseline</p>
+               <h3>Healthy Leaf</h3>
+               <p>Uniform green foliage free from marginal yellowing, darkened vascular veins, or necrotic lesions. Keep in mind that nutrient stress or insect feeding can mimic early symptoms.</p>
+               <a class="source-link"
+                  href="https://ipm.ucanr.edu/home-and-landscape/cauliflower/"
+                  target="_blank" rel="noopener noreferrer">Cauliflower care &amp; disorders · UC IPM ↗</a>
+            </article>
+         </div>
+
+         <div class="research-notice">
+            <svg aria-hidden="true"><use href="#info" /></svg>
+            <span>
+               <strong>Binary classifier limitation:</strong> Because <code>model5-singleTest.py</code> uses a 2-class softmax head (<code>Black Rot</code> vs. <code>Healthy</code>), scores always sum to 100%. Conditions outside these two classes—such as downy mildew or insect damage—will still be forced into one of the two labels.
+            </span>
+         </div>
+
+         <article class="method">
+            <div class="method-heading">
+               <h3>How this integrated pipeline works</h3>
+               <span>Frontend → Flask API → PyTorch</span>
+            </div>
+            <div class="steps">
+               <div class="step">
+                  <div class="step-no">01 /</div>
+                  <h4>Upload &amp; resize</h4>
+                  <p>The browser posts your photo to <code>/predict</code>. PIL converts it to RGB and resizes it to 224 × 224 pixels.</p>
+               </div>
+               <div class="step">
+                  <div class="step-no">02 /</div>
+                  <h4>ResNet-18 inference</h4>
+                  <p>The tensor is normalized with ImageNet mean/std and evaluated through your loaded <code>Cauli-leaf_resnet18_model.pth</code> weights.</p>
+               </div>
+               <div class="step">
+                  <div class="step-no">03 /</div>
+                  <h4>Softmax screening</h4>
+                  <p>Logits are converted to class scores via softmax and returned as JSON to populate the insights panel.</p>
+               </div>
+            </div>
+         </article>
+      </section>
+   </main>
+
+   <footer>
+      <div class="wrap footer-inner">
+         <span class="footer-brand">Crop Intel</span>
+         <p>Local PyTorch ResNet-18 backend · Experimental screening</p>
+         <a href="#analyze">Back to analysis ↑</a>
+      </div>
+   </footer>
+
+   <script>
+      (() => {
+         // Automatically works whether served by Flask or opened directly via file://
+         const API_BASE = window.location.protocol === "file:" ? "http://127.0.0.1:5000" : "";
+         const MAX_BYTES = 20 * 1024 * 1024;
+         const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+         const fileInput = document.getElementById("file-input");
+         const dropzone = document.getElementById("dropzone");
+         const uploadEmpty = document.getElementById("upload-empty");
+         const preview = document.getElementById("preview");
+         const imageTag = document.getElementById("image-tag");
+         const scanLine = document.getElementById("scan-line");
+         const fileRow = document.getElementById("file-row");
+         const filenameEl = document.getElementById("filename");
+         const removeBtn = document.getElementById("remove");
+         const errorEl = document.getElementById("error");
+         const analyzeBtn = document.getElementById("analyze-button");
+         const buttonText = document.getElementById("button-text");
+
+         const stateBadge = document.getElementById("state-badge");
+         const waitingPanel = document.getElementById("waiting");
+         const processingPanel = document.getElementById("processing");
+         const resultPanel = document.getElementById("result");
+         const stageEl = document.getElementById("stage");
+         const percentEl = document.getElementById("percent");
+         const progressEl = document.getElementById("progress");
+         const cancelBtn = document.getElementById("cancel");
+         const restartBtn = document.getElementById("restart");
+
+         const resultSymbol = document.getElementById("result-symbol");
+         const resultTitle = document.getElementById("result-title");
+         const resultDesc = document.getElementById("result-description");
+         const classificationEl = document.getElementById("classification");
+         const confidenceEl = document.getElementById("confidence-val");
+         const timingEl = document.getElementById("timing-val");
+         const classScoresEl = document.getElementById("class-scores");
+         const announcer = document.getElementById("announcer");
+
+         const backendPill = document.getElementById("backend-pill");
+         const backendStatusText = document.getElementById("backend-status-text");
+         const modelInfoEl = document.getElementById("model-info");
+
+         let selectedFile = null;
+         let previewUrl = null;
+         let abortController = null;
+         let progressTimer = null;
+
+         function showError(message) {
+            errorEl.textContent = message;
+            errorEl.hidden = false;
+            announcer.textContent = message;
+         }
+
+         function clearError() {
+            errorEl.hidden = true;
+            errorEl.textContent = "";
+         }
+
+         function formatBytes(bytes) {
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+         }
+
+         function setPanelState(mode) {
+            waitingPanel.hidden = mode !== "waiting";
+            processingPanel.hidden = mode !== "processing";
+            resultPanel.hidden = mode !== "result";
+            scanLine.hidden = mode !== "processing";
+
+            if (mode === "waiting") {
+               stateBadge.textContent = selectedFile ? "Ready to analyze" : "Awaiting image";
+            } else if (mode === "processing") {
+               stateBadge.textContent = "Analyzing";
+            } else {
+               stateBadge.textContent = "Complete";
+            }
+         }
+
+         function handleFile(file) {
+            clearError();
+            if (!file) return;
+
+            if (file.type && !ALLOWED_TYPES.has(file.type)) {
+               showError("Please choose a JPG, PNG, or WebP image.");
+               return;
+            }
+            if (file.size > MAX_BYTES) {
+               showError("Image is larger than 20 MB. Please select a smaller file.");
+               return;
+            }
+
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            selectedFile = file;
+            previewUrl = URL.createObjectURL(file);
+
+            preview.src = previewUrl;
+            preview.hidden = false;
+            uploadEmpty.hidden = true;
+            imageTag.hidden = false;
+            fileRow.hidden = false;
+            filenameEl.textContent = `${file.name} (${formatBytes(file.size)})`;
+            analyzeBtn.disabled = false;
+            buttonText.textContent = "Analyze image";
+
+            setPanelState("waiting");
+            announcer.textContent = `Selected ${file.name}. Ready to analyze.`;
+         }
+
+         function resetUpload() {
+            if (abortController) {
+               abortController.abort();
+               abortController = null;
+            }
+            stopProgressAnimation();
+
+            if (previewUrl) {
+               URL.revokeObjectURL(previewUrl);
+               previewUrl = null;
+            }
+
+            selectedFile = null;
+            fileInput.value = "";
+            preview.hidden = true;
+            preview.removeAttribute("src");
+            uploadEmpty.hidden = false;
+            imageTag.hidden = true;
+            fileRow.hidden = true;
+            analyzeBtn.disabled = true;
+            buttonText.textContent = "Analyze image";
+            clearError();
+            setPanelState("waiting");
+         }
+
+         function startProgressAnimation() {
+            let value = 10;
+            progressEl.value = value;
+            percentEl.textContent = `${value}%`;
+            stageEl.textContent = "Uploading image";
+
+            progressTimer = window.setInterval(() => {
+               if (value < 88) {
+                  value += Math.max(2, Math.round((90 - value) * 0.18));
+                  progressEl.value = value;
+                  percentEl.textContent = `${value}%`;
+                  if (value >= 35 && value < 70) {
+                     stageEl.textContent = "Running ResNet-18 forward pass";
+                  } else if (value >= 70) {
+                     stageEl.textContent = "Computing softmax probabilities";
+                  }
+               }
+            }, 140);
+         }
+
+         function stopProgressAnimation() {
+            if (progressTimer) {
+               clearInterval(progressTimer);
+               progressTimer = null;
+            }
+         }
+
+         function renderResult(data) {
+            const predicted = data.predicted_class || "Unknown";
+            const isHealthy = predicted.toLowerCase() === "healthy";
+            const pct = (data.confidence * 100).toFixed(2);
+
+            resultPanel.classList.toggle("infected", !isHealthy);
+            resultSymbol.setAttribute("href", isHealthy ? "#check" : "#alert");
+
+            if (isHealthy) {
+               resultTitle.textContent = "No black rot detected";
+               resultDesc.textContent = "The image most closely matches the Healthy cauliflower leaf class in the trained model.";
+            } else {
+               resultTitle.textContent = "Black rot suspected";
+               resultDesc.textContent = "The model favored visual patterns associated with Black Rot. Inspect leaf margins and veins closely to verify.";
+            }
+
+            classificationEl.textContent = predicted;
+            confidenceEl.textContent = `${pct}%`;
+            timingEl.textContent = data.inference_ms != null
+               ? `${data.inference_ms} ms (${data.device.toUpperCase()})`
+               : "—";
+
+            classScoresEl.innerHTML = "";
+            (data.scores || []).forEach((item) => {
+               const scorePct = (item.score * 100).toFixed(2);
+               const row = document.createElement("div");
+               row.className = "score-row";
+
+               const labelSpan = document.createElement("span");
+               labelSpan.textContent = item.label;
+
+               const valStrong = document.createElement("strong");
+               valStrong.textContent = `${scorePct}%`;
+
+               const track = document.createElement("span");
+               track.className = "score-track";
+               const fill = document.createElement("span");
+               fill.style.width = `${Math.min(100, Math.max(0, item.score * 100))}%`;
+               track.appendChild(fill);
+
+               row.append(labelSpan, valStrong, track);
+               classScoresEl.appendChild(row);
+            });
+
+            setPanelState("result");
+            announcer.textContent = `Assessment complete: ${predicted} with ${pct}% confidence.`;
+         }
+
+         async function runAnalysis() {
+            if (!selectedFile) return;
+
+            clearError();
+            analyzeBtn.disabled = true;
+            buttonText.textContent = "Analyzing...";
+            setPanelState("processing");
+            startProgressAnimation();
+
+            abortController = new AbortController();
+            const formData = new FormData();
+            formData.append("image", selectedFile);
+
+            try {
+               const response = await fetch(`${API_BASE}/predict`, {
+                  method: "POST",
+                  body: formData,
+                  signal: abortController.signal,
+               });
+
+               const payload = await response.json().catch(() => ({}));
+               if (!response.ok) {
+                  throw new Error(payload.error || `Server error (${response.status})`);
+               }
+
+               stopProgressAnimation();
+               progressEl.value = 100;
+               percentEl.textContent = "100%";
+               stageEl.textContent = "Complete";
+
+               renderResult(payload);
+            } catch (err) {
+               stopProgressAnimation();
+               if (err.name === "AbortError") {
+                  setPanelState("waiting");
+                  announcer.textContent = "Analysis canceled.";
+               } else {
+                  setPanelState("waiting");
+                  showError(
+                     err.message === "Failed to fetch"
+                        ? "Cannot reach the Python backend. Make sure model5-singleTest.py is running on http://127.0.0.1:5000."
+                        : err.message
+                  );
+               }
+            } finally {
+               abortController = null;
+               analyzeBtn.disabled = !selectedFile;
+               buttonText.textContent = "Analyze image";
+            }
+         }
+
+         async function checkBackendHealth() {
+            try {
+               const res = await fetch(`${API_BASE}/health`);
+               const data = await res.json();
+               if (res.ok && data.model_loaded) {
+                  backendPill.className = "status-pill online";
+                  backendStatusText.textContent = `Backend online · ${data.device.toUpperCase()}`;
+                  modelInfoEl.textContent = `${data.architecture} · ${data.classes.length} classes (${data.classes.join(", ")})`;
+               } else {
+                  backendPill.className = "status-pill offline";
+                  backendStatusText.textContent = "Model not loaded";
+                  showError(data.error || "Backend is reachable, but model weights failed to load.");
+               }
+            } catch {
+               backendPill.className = "status-pill offline";
+               backendStatusText.textContent = "Backend offline";
+            }
+         }
+
+         dropzone.addEventListener("click", () => fileInput.click());
+         fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+
+         ["dragenter", "dragover"].forEach((evt) => {
+            dropzone.addEventListener(evt, (e) => {
+               e.preventDefault();
+               dropzone.classList.add("dragover");
+            });
+         });
+
+         ["dragleave", "drop"].forEach((evt) => {
+            dropzone.addEventListener(evt, (e) => {
+               e.preventDefault();
+               dropzone.classList.remove("dragover");
+            });
+         });
+
+         dropzone.addEventListener("drop", (e) => {
+            const file = e.dataTransfer?.files?.[0];
+            if (file) handleFile(file);
+         });
+
+         removeBtn.addEventListener("click", resetUpload);
+         restartBtn.addEventListener("click", resetUpload);
+         analyzeBtn.addEventListener("click", runAnalysis);
+         cancelBtn.addEventListener("click", () => {
+            if (abortController) abortController.abort();
+         });
+
+         checkBackendHealth();
+      })();
+   </script>
+</body>
+
+</html>
